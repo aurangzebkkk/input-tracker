@@ -321,6 +321,8 @@ else:
             self._start_listeners()
 
         def _start_listeners(self):
+            import sys
+
             def on_press(_key):
                 with self._lock:
                     self.counts["keystrokes"] += 1
@@ -330,12 +332,31 @@ else:
                     with self._lock:
                         self.counts["clicks"] += 1
 
-            kb = keyboard.Listener(on_press=on_press)
-            ms = mouse.Listener(on_click=on_click)
-            kb.daemon = True
-            ms.daemon = True
-            kb.start()
-            ms.start()
+            try:
+                kb = keyboard.Listener(on_press=on_press)
+                ms = mouse.Listener(on_click=on_click)
+                kb.daemon = True
+                ms.daemon = True
+                kb.start()
+                ms.start()
+            except Exception as e:
+                print(f"[inputtracker] WARNING: could not start input listeners: {e}", file=sys.stderr)
+                if OS == "Linux":
+                    session = os.environ.get("XDG_SESSION_TYPE", "unknown")
+                    display = os.environ.get("DISPLAY", "")
+                    if session == "wayland" and not display:
+                        print(
+                            "[inputtracker] Pure Wayland detected. Ensure you are in the 'input' group:\n"
+                            "  sudo usermod -aG input $USER   (then log out and back in)\n"
+                            "  Or install XWayland for X11-based input monitoring.",
+                            file=sys.stderr,
+                        )
+                    elif not display:
+                        print(
+                            "[inputtracker] DISPLAY is not set. On X11 ensure DISPLAY=:0 is in the environment.\n"
+                            "  Re-run setup.sh from within your graphical session.",
+                            file=sys.stderr,
+                        )
 
         def _tick(self):
             while True:

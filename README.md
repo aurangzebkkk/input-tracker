@@ -12,18 +12,23 @@ Data is stored locally as JSON files in `~/.inputtracker/`. Nothing leaves your 
 ## Requirements
 
 - Python 3.8 or newer
-- **Linux only** — install these system packages before running `setup.sh`:
+- **Linux only** — install system packages for the tray icon backend (needed on both X11 and Wayland):
 
   ```bash
   # Ubuntu / Debian
   sudo apt install python3-gi gir1.2-appindicator3-0.1
 
   # Fedora / RHEL
-  sudo dnf install python3-gobject
+  sudo dnf install python3-gobject libappindicator-gtk3
 
   # Arch
   sudo pacman -S python-gobject libappindicator-gtk3
   ```
+
+  > **GNOME on Wayland** does not show system tray icons by default. Install the
+  > [AppIndicator and KStatusNotifierItem Support](https://extensions.gnome.org/extension/615/appindicator-support/)
+  > GNOME Shell extension to enable them. KDE Plasma, XFCE, Cinnamon, and most
+  > other DEs support tray icons out of the box.
 
 ---
 
@@ -56,13 +61,36 @@ bash setup.sh
 
 This creates a virtual environment, installs dependencies, registers a systemd user service so the app starts at login, and launches it immediately.
 
+**Run `setup.sh` from within your graphical session** (not over SSH) so it can detect your session type and import the correct display environment variables.
+
 ```
 Stop:     systemctl --user stop inputtracker
 Disable:  systemctl --user disable inputtracker
 Logs:     journalctl --user -u inputtracker -f
+          or: tail -f ~/.inputtracker/err.log
 ```
 
-> **Wayland note**: `pynput` requires XWayland for input monitoring. Most distributions ship XWayland by default. If the app starts but records nothing, ensure XWayland is running.
+#### X11 (Xorg)
+
+Works out of the box once the system packages above are installed. `pynput` uses the X11/Xlib backend automatically when `DISPLAY` is set.
+
+#### Wayland
+
+Two modes depending on whether XWayland is present:
+
+| Setup | How input monitoring works |
+|---|---|
+| Wayland + XWayland (default on most distros) | `pynput` uses the X11 backend via XWayland. No extra steps needed. |
+| Pure Wayland (XWayland disabled) | `pynput` uses the `evdev` backend. Requires the user to be in the `input` group. |
+
+If `setup.sh` detects pure Wayland (no `DISPLAY`), it automatically adds your user to the `input` group and prompts you to log out and back in for it to take effect.
+
+To check which mode you're using:
+
+```bash
+echo $XDG_SESSION_TYPE   # "x11" or "wayland"
+echo $DISPLAY            # empty = pure Wayland (no XWayland)
+```
 
 ---
 
